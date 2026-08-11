@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Physio Nest — Feedback</title>
+<meta name="theme-color" content="#1B3B2F" />
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #F7F3EC; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #2B2B24; }
+  .wrap { max-width: 480px; margin: 0 auto; min-height: 100vh; padding-bottom: 40px; }
+  .header { background: linear-gradient(135deg, #1B3B2F, #122A21); color: #fff; padding: 28px 20px 22px; border-radius: 0 0 22px 22px; text-align: center; }
+  .header h1 { font-family: Georgia, serif; font-size: 24px; margin: 6px 0 2px; }
+  .header p { font-size: 13px; color: #E4CFA0; margin: 0; }
+  .content { padding: 20px; }
+  .card { background: #fff; border: 1px solid #E4DECF; border-radius: 16px; padding: 18px; }
+  label { font-size: 12.5px; font-weight: 600; color: #6B6A5E; text-transform: uppercase; letter-spacing: 0.4px; display: block; margin-bottom: 6px; }
+  .field { margin-bottom: 16px; }
+  input, textarea { width: 100%; padding: 11px 12px; border: 1.5px solid #E4DECF; border-radius: 10px; font-size: 15px; font-family: inherit; }
+  textarea { min-height: 90px; resize: vertical; }
+  .stars { display: flex; gap: 8px; font-size: 28px; }
+  .star { color: #E4DECF; cursor: pointer; }
+  .star.filled { color: #C29B4F; }
+  button { background: #1B3B2F; color: #fff; border: none; border-radius: 12px; padding: 14px; font-size: 15px; font-weight: 600; width: 100%; cursor: pointer; }
+  button:disabled { opacity: 0.5; }
+  .done { text-align: center; padding: 40px 20px; }
+  .done .check { font-size: 46px; margin-bottom: 10px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
+<script type="text/babel">
+const { useState } = React;
+
+// Set this once to your Apps Script Web App URL (the same one used in the main app).
+// This page only ever sends feedback — it cannot read or change any patient data.
+const SHEETS_URL = "https://script.google.com/macros/s/AKfycbzx1s4whGCf4b0g8swNq_FZZ1PM-6pD6OuGDfHABvn2ZbFEW3Fq8Yoppqd97JcAFNat/exec";
+
+function App() {
+  const [name, setName] = useState("");
+  const [visitDate, setVisitDate] = useState(new Date().toISOString().slice(0,10));
+  const [rating, setRating] = useState(0);
+  const [comments, setComments] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [done, setDone] = useState(false);
+
+  const submit = async () => {
+    if (!name.trim() || !rating) return;
+    setSubmitting(true);
+    try {
+      await fetch(SHEETS_URL, {
+        method: "POST", mode: "no-cors",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ type: "feedback", data: { patientName: name, visitDate, rating, comments } }),
+      });
+    } catch (e) { console.error(e); }
+    setSubmitting(false);
+    setDone(true);
+  };
+
+  if (done) {
+    return (
+      <div className="wrap">
+        <div className="header"><span style={{fontSize:20}}>🍃</span><h1>Physio Nest</h1><p>PHYSIOTHERAPY AT HOME</p></div>
+        <div className="content"><div className="card done">
+          <div className="check">✓</div>
+          <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 6 }}>Thank you!</div>
+          <div style={{ color: "#6B6A5E", fontSize: 14 }}>Your feedback has been recorded. We appreciate you taking the time.</div>
+        </div></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="wrap">
+      <div className="header"><span style={{fontSize:20}}>🍃</span><h1>Physio Nest</h1><p>WE'D LOVE YOUR FEEDBACK</p></div>
+      <div className="content">
+        <div className="card">
+          <div className="field"><label>Your name</label>
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" /></div>
+          <div className="field"><label>Visit date</label>
+            <input type="date" value={visitDate} onChange={(e) => setVisitDate(e.target.value)} /></div>
+          <div className="field"><label>How was your session?</label>
+            <div className="stars">{[1,2,3,4,5].map((n) => (
+              <span key={n} className={`star ${n <= rating ? "filled" : ""}`} onClick={() => setRating(n)}>★</span>
+            ))}</div></div>
+          <div className="field"><label>Comments (optional)</label>
+            <textarea value={comments} onChange={(e) => setComments(e.target.value)} placeholder="Tell us about your experience..." /></div>
+          <button disabled={!name.trim() || !rating || submitting} onClick={submit}>
+            {submitting ? "Submitting..." : "Submit feedback"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
