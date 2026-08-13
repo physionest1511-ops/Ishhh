@@ -20,10 +20,11 @@
   body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
   .pn-root { background: #F7F3EC; color: #2B2B24; min-height: 100vh; max-width: 480px; margin: 0 auto; padding-bottom: 90px; position: relative; }
   .pn-serif { font-family: Georgia, "Times New Roman", serif; }
-  .pn-header { background: linear-gradient(135deg, #1B3B2F, #122A21); color: #fff; padding: 22px 20px 18px; border-radius: 0 0 22px 22px; }
+  .pn-header { background: linear-gradient(135deg, #1B3B2F, #122A21); color: #fff; padding: 22px 20px 18px; border-radius: 0 0 22px 22px; display: flex; justify-content: space-between; align-items: flex-start; }
   .pn-header-top { display: flex; align-items: center; gap: 8px; }
   .pn-header-title { font-size: 22px; font-weight: 700; letter-spacing: 0.3px; }
   .pn-header-sub { font-size: 12.5px; color: #E4CFA0; margin-top: 2px; letter-spacing: 0.5px; }
+  .pn-lock-btn { background: rgba(255,255,255,0.12); border: none; color: #fff; border-radius: 10px; padding: 6px 9px; font-size: 15px; cursor: pointer; }
   .pn-content { padding: 16px; }
   .pn-tabs { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); max-width: 480px; width: 100%; background: #fff; border-top: 1px solid #E4DECF; display: flex; padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); box-shadow: 0 -4px 14px rgba(0,0,0,0.06); overflow-x: auto; }
   .pn-tab { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; background: none; border: none; padding: 6px 2px; cursor: pointer; color: #6B6A5E; font-size: 10px; border-radius: 10px; min-width: 56px; }
@@ -46,14 +47,10 @@
   .pn-patient-row { display: flex; align-items: center; gap: 12px; padding: 13px 14px; background: #fff; border: 1px solid #E4DECF; border-radius: 14px; margin-bottom: 10px; cursor: pointer; }
   .pn-avatar { width: 42px; height: 42px; border-radius: 50%; background: #1B3B2F; color: #E4CFA0; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px; flex-shrink: 0; }
   .pn-badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 20px; }
-  .pn-badge-done { background: #E5F0E9; color: #1B3B2F; }
-  .pn-badge-cancel { background: #F5E6E1; color: #A1442E; }
-  .pn-badge-resched { background: #FBF1DD; color: #8A6A1F; }
   .pn-badge-warn { background: #FBF1DD; color: #8A6A1F; }
   .pn-badge-due { background: #F5E6E1; color: #A1442E; }
-  .pn-visit-item { border-bottom: 1px solid #E4DECF; padding: 12px 0; }
+  .pn-visit-item { border-bottom: 1px solid #E4DECF; padding: 12px 0; cursor: pointer; }
   .pn-visit-item:last-child { border-bottom: none; }
-  .pn-stars { display: flex; gap: 6px; }
   .pn-modal-overlay { position: fixed; inset: 0; background: rgba(20,30,25,0.5); display: flex; align-items: flex-end; max-width: 480px; margin: 0 auto; z-index: 50; }
   .pn-modal { background: #F7F3EC; width: 100%; border-radius: 20px 20px 0 0; padding: 20px; max-height: 85vh; overflow-y: auto; }
   .pn-toast { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%); background: #1B3B2F; color: #fff; padding: 10px 18px; border-radius: 30px; font-size: 13.5px; display: flex; gap: 6px; align-items: center; max-width: 440px; z-index: 60; }
@@ -64,6 +61,9 @@
   .pn-stat-label { font-size: 10.5px; color: #6B6A5E; text-transform: uppercase; letter-spacing: 0.3px; margin-top: 2px; }
   .pn-progress-bar { background: #E4DECF; border-radius: 20px; height: 8px; overflow: hidden; margin-top: 6px; }
   .pn-progress-fill { background: #1B3B2F; height: 100%; border-radius: 20px; }
+  .pn-time-row { display: flex; gap: 6px; }
+  .pn-pw-wrap { position: relative; }
+  .pn-pw-eye { position: absolute; right: 8px; top: 8px; background: none; border: none; font-size: 18px; cursor: pointer; padding: 4px; }
 </style>
 </head>
 <body>
@@ -79,10 +79,7 @@ function fmtDate(d) {
   const dt = new Date(d + "T00:00:00");
   return dt.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 }
-function fmtMoney(n) {
-  const v = Number(n) || 0;
-  return "₹" + v.toLocaleString("en-IN");
-}
+function fmtMoney(n) { const v = Number(n) || 0; return "₹" + v.toLocaleString("en-IN"); }
 function getWeekRange(base) {
   const date = new Date(base);
   const day = date.getDay();
@@ -92,11 +89,69 @@ function getWeekRange(base) {
   return { monday, sunday };
 }
 
+// ---- 12-hour time helpers ----
+function nowHHMM() {
+  const d = new Date();
+  return String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0");
+}
+function timeToParts(hhmm) {
+  if (!hhmm) return { h: "09", m: "00", ap: "AM" };
+  let [h, m] = hhmm.split(":").map(Number);
+  const ap = h >= 12 ? "PM" : "AM";
+  let h12 = h % 12; if (h12 === 0) h12 = 12;
+  return { h: String(h12).padStart(2,"0"), m: String(m).padStart(2,"0"), ap };
+}
+function partsToTime(h, m, ap) {
+  let h24 = Number(h) % 12;
+  if (ap === "PM") h24 += 12;
+  return String(h24).padStart(2,"0") + ":" + String(m).padStart(2,"0");
+}
+function fmtTime12(hhmm) {
+  if (!hhmm) return "";
+  const { h, m, ap } = timeToParts(hhmm);
+  return `${Number(h)}:${m} ${ap}`;
+}
+function calcDurationMin(arrival, completion) {
+  if (!arrival || !completion) return null;
+  const [ah, am] = arrival.split(":").map(Number);
+  const [ch, cm] = completion.split(":").map(Number);
+  let mins = (ch * 60 + cm) - (ah * 60 + am);
+  if (mins < 0) mins += 24 * 60;
+  return mins;
+}
+function fmtDuration(mins) {
+  if (mins === null || mins === undefined || isNaN(mins)) return "";
+  const h = Math.floor(mins / 60), m = mins % 60;
+  return h > 0 ? `${h}h ${m}m` : `${m} min`;
+}
+
+function TimePicker12({ value, onChange }) {
+  const { h, m, ap } = timeToParts(value);
+  const hours = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0"));
+  const minutes = ["00","05","10","15","20","25","30","35","40","45","50","55"];
+  const upd = (nh, nm, nap) => onChange(partsToTime(nh, nm, nap));
+  return (
+    <div className="pn-time-row">
+      <select className="pn-select" value={h} onChange={(e) => upd(e.target.value, m, ap)}>{hours.map((x) => <option key={x} value={x}>{x}</option>)}</select>
+      <select className="pn-select" value={m} onChange={(e) => upd(h, e.target.value, ap)}>{minutes.map((x) => <option key={x} value={x}>{x}</option>)}</select>
+      <select className="pn-select" style={{ maxWidth: 78 }} value={ap} onChange={(e) => upd(h, m, e.target.value)}><option>AM</option><option>PM</option></select>
+    </div>
+  );
+}
+
+function PasswordField({ value, onChange, placeholder }) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="pn-pw-wrap">
+      <input className="pn-input" style={{ paddingRight: 42 }} type={show ? "text" : "password"} value={value} onChange={onChange} placeholder={placeholder} />
+      <button type="button" className="pn-pw-eye" onClick={() => setShow((s) => !s)}>{show ? "🙈" : "👁️"}</button>
+    </div>
+  );
+}
+
 function loadKey(key, fallback) {
-  try {
-    const v = localStorage.getItem("pn_" + key);
-    return v ? JSON.parse(v) : fallback;
-  } catch { return fallback; }
+  try { const v = localStorage.getItem("pn_" + key); return v ? JSON.parse(v) : fallback; }
+  catch { return fallback; }
 }
 function saveKey(key, value) {
   try { localStorage.setItem("pn_" + key, JSON.stringify(value)); }
@@ -108,25 +163,19 @@ async function syncToSheets(url, secret, type, data) {
     await fetch(url, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ type, data, secret }) });
   } catch (e) { console.error("Sheets sync failed", e); }
 }
-
 function normalizeDate(d) {
   if (!d) return "";
   const s = String(d);
   return s.includes("T") ? s.slice(0, 10) : s;
 }
-
 async function fetchFromSheet(url, secret, type) {
   if (!url) return null;
   try {
     const res = await fetch(`${url}?type=${type}&secret=${encodeURIComponent(secret)}`);
     const data = await res.json();
     return Array.isArray(data) ? data : null;
-  } catch (e) {
-    console.error("Fetch from sheet failed", e);
-    return null;
-  }
+  } catch (e) { console.error("Fetch from sheet failed", e); return null; }
 }
-
 async function loadFromSheet(url, secret) {
   const rawPatients = await fetchFromSheet(url, secret, "patients");
   const rawVisits = await fetchFromSheet(url, secret, "visits");
@@ -149,9 +198,9 @@ async function loadFromSheet(url, secret) {
   const visits = rawVisits.filter((v) => v.ID).map((v) => ({
     id: String(v.ID),
     patientId: nameToId[v["Patient Name"]] || v["Patient Name"],
-    date: normalizeDate(v.Date), status: v.Status || "", arrival: v.Arrival || "",
-    observations: v.Observations || "", treatment: v.Treatment || "", exercises: v["Exercises Given"] || "",
-    nextVisit: v["Next Visit Status"] || "", reason: v.Reason || "",
+    date: normalizeDate(v.Date), arrival: v.Arrival || "", completion: v.Completion || "",
+    duration: v["Duration (min)"] || "",
+    observations: v.Observations || "", treatment: v.Treatment || "",
     loggedAt: v["Logged At"] || "",
   }));
 
@@ -164,9 +213,7 @@ async function loadFromSheet(url, secret) {
   return { patients, visits, payments };
 }
 
-function completedCount(patientId, visits) {
-  return visits.filter((v) => v.patientId === patientId && v.status === "Completed").length;
-}
+function completedCount(patientId, visits) { return visits.filter((v) => v.patientId === patientId).length; }
 function computeBalance(patient, visits, payments) {
   const fee = Number(patient.fee) || 0;
   const advance = Number(patient.advance) || 0;
@@ -192,7 +239,6 @@ function downloadCSV(filename, rows) {
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
-
 function resizeImageFile(file, maxWidth) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -201,62 +247,69 @@ function resizeImageFile(file, maxWidth) {
       img.onload = () => {
         const scale = Math.min(1, maxWidth / img.width);
         const canvas = document.createElement("canvas");
-        canvas.width = img.width * scale;
-        canvas.height = img.height * scale;
+        canvas.width = img.width * scale; canvas.height = img.height * scale;
         const ctx = canvas.getContext("2d");
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
         const dataUrl = canvas.toDataURL("image/jpeg", 0.75);
         resolve({ base64: dataUrl.split(",")[1], mime: "image/jpeg" });
       };
-      img.onerror = reject;
-      img.src = e.target.result;
+      img.onerror = reject; img.src = e.target.result;
     };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
+    reader.onerror = reject; reader.readAsDataURL(file);
   });
 }
+function Toast({ message }) { if (!message) return null; return <div className="pn-toast">✓ {message}</div>; }
 
-function Star({ filled }) {
-  return <span style={{ color: filled ? GOLD : BORDER, fontSize: 20, cursor: "pointer" }}>★</span>;
-}
-function Toast({ message }) {
-  if (!message) return null;
-  return <div className="pn-toast">✓ {message}</div>;
+function LockScreen({ correctSecret, onUnlock }) {
+  const [entered, setEntered] = useState(""), [error, setError] = useState(false);
+  const submit = () => { if (entered === correctSecret) onUnlock(); else setError(true); };
+  return (
+    <div className="pn-root" style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
+      <div style={{ width: "100%", padding: 24 }}>
+        <div style={{ textAlign: "center", marginBottom: 20 }}>
+          <div style={{ fontSize: 32 }}>🍃</div>
+          <div className="pn-serif" style={{ fontSize: 22, fontWeight: 700, color: FOREST }}>Physio Nest</div>
+          <div style={{ fontSize: 12.5, color: MUTED }}>Enter your password to continue</div>
+        </div>
+        <div className="pn-card">
+          <PasswordField value={entered} onChange={(e) => { setEntered(e.target.value); setError(false); }} placeholder="Password" />
+          {error && <div style={{ color: "#A1442E", fontSize: 12.5, marginTop: 8 }}>Incorrect password, try again.</div>}
+          <button className="pn-btn" style={{ marginTop: 12 }} onClick={submit}>Unlock</button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
-function AddPatientModal({ onClose, onSave }) {
-  const [name, setName] = useState(""), [phone, setPhone] = useState("");
-  const [age, setAge] = useState(""), [gender, setGender] = useState("");
-  const [condition, setCondition] = useState(""), [address, setAddress] = useState("");
-  const [occupation, setOccupation] = useState(""), [referredBy, setReferredBy] = useState("");
-  const [emergencyName, setEmergencyName] = useState(""), [emergencyPhone, setEmergencyPhone] = useState("");
-  const [fee, setFee] = useState(""), [advance, setAdvance] = useState("");
-  const [treatmentPlan, setTreatmentPlan] = useState("Open-ended"), [packageSessions, setPackageSessions] = useState("");
-  const [idCard, setIdCard] = useState(null);
-  const [idCardPreview, setIdCardPreview] = useState("");
+function PatientFormModal({ initial, onClose, onSave, title }) {
+  const [name, setName] = useState(initial?.name || ""), [phone, setPhone] = useState(initial?.phone || "");
+  const [age, setAge] = useState(initial?.age || ""), [gender, setGender] = useState(initial?.gender || "");
+  const [condition, setCondition] = useState(initial?.condition || ""), [address, setAddress] = useState(initial?.address || "");
+  const [occupation, setOccupation] = useState(initial?.occupation || ""), [referredBy, setReferredBy] = useState(initial?.referredBy || "");
+  const [emergencyName, setEmergencyName] = useState(initial?.emergencyName || ""), [emergencyPhone, setEmergencyPhone] = useState(initial?.emergencyPhone || "");
+  const [fee, setFee] = useState(initial?.fee || ""), [advance, setAdvance] = useState(initial?.advance || "");
+  const [treatmentPlan, setTreatmentPlan] = useState(initial?.treatmentPlan || "Open-ended"), [packageSessions, setPackageSessions] = useState(initial?.packageSessions || "");
+  const [idCard, setIdCard] = useState(null), [idCardPreview, setIdCardPreview] = useState("");
   const [processing, setProcessing] = useState(false);
 
   const handleFile = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+    const file = e.target.files[0]; if (!file) return;
     setProcessing(true);
-    try {
-      const { base64, mime } = await resizeImageFile(file, 1000);
-      setIdCard({ base64, mime });
-      setIdCardPreview("data:" + mime + ";base64," + base64);
-    } catch (err) { console.error(err); }
+    try { const { base64, mime } = await resizeImageFile(file, 1000); setIdCard({ base64, mime }); setIdCardPreview("data:" + mime + ";base64," + base64); }
+    catch (err) { console.error(err); }
     setProcessing(false);
   };
 
   const handleSave = () => {
     if (!name.trim()) return;
     onSave({
-      id: uid(), name, phone, age, gender, condition, occupation, referredBy, address,
+      id: initial?.id || uid(), name, phone, age, gender, condition, occupation, referredBy, address,
       emergencyName, emergencyPhone, fee, advance, treatmentPlan,
       packageSessions: treatmentPlan === "Fixed" ? packageSessions : "",
-      addedDate: todayStr(),
+      addedDate: initial?.addedDate || todayStr(),
       idCardBase64: idCard ? idCard.base64 : "",
       idCardMime: idCard ? idCard.mime : "",
+      existingIdCardUrl: initial?.idCardUrl || "",
     });
   };
 
@@ -264,7 +317,7 @@ function AddPatientModal({ onClose, onSave }) {
     <div className="pn-modal-overlay" onClick={onClose}>
       <div className="pn-modal" onClick={(e) => e.stopPropagation()}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-          <h3 className="pn-serif" style={{ margin: 0, fontSize: 19 }}>New patient</h3>
+          <h3 className="pn-serif" style={{ margin: 0, fontSize: 19 }}>{title}</h3>
           <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 20 }}>✕</button>
         </div>
         <div className="pn-field"><label className="pn-label">Name</label>
@@ -293,7 +346,6 @@ function AddPatientModal({ onClose, onSave }) {
           <div className="pn-field" style={{ flex: 1 }}><label className="pn-label">Emergency phone</label>
             <input className="pn-input" value={emergencyPhone} onChange={(e) => setEmergencyPhone(e.target.value)} placeholder="Optional" /></div>
         </div>
-
         <div className="pn-card" style={{ margin: "4px 0 14px", padding: 14 }}>
           <div className="pn-label" style={{ marginBottom: 10 }}>Fees & payment</div>
           <div style={{ display: "flex", gap: 10 }}>
@@ -312,16 +364,14 @@ function AddPatientModal({ onClose, onSave }) {
               <input className="pn-input" type="number" inputMode="numeric" value={packageSessions} onChange={(e) => setPackageSessions(e.target.value)} placeholder="e.g. 10" /></div>
           )}
         </div>
-
         <div className="pn-field"><label className="pn-label">ID card photo (optional)</label>
+          {initial?.idCardUrl && !idCardPreview && <div style={{ fontSize: 12.5, marginBottom: 6 }}>Current: <a href={initial.idCardUrl} target="_blank" style={{ color: FOREST }}>view existing</a> (choose a new file below to replace)</div>}
           <input className="pn-input" type="file" accept="image/*" onChange={handleFile} style={{ padding: 8 }} />
           {processing && <div style={{ fontSize: 12, color: MUTED, marginTop: 6 }}>Processing image...</div>}
           {idCardPreview && <img src={idCardPreview} style={{ width: "100%", borderRadius: 10, marginTop: 8, maxHeight: 180, objectFit: "cover" }} />}
-          <div style={{ fontSize: 11.5, color: MUTED, marginTop: 6 }}>Uploads to your Google Drive when saved and synced.</div>
         </div>
-
         <button className="pn-btn" disabled={!name.trim() || processing} style={{ opacity: name.trim() && !processing ? 1 : 0.5 }} onClick={handleSave}>
-          + Add patient
+          {initial ? "✓ Save changes" : "+ Add patient"}
         </button>
       </div>
     </div>
@@ -344,9 +394,7 @@ function AddPaymentModal({ patient, onClose, onSave }) {
         <div className="pn-field"><label className="pn-label">Note (optional)</label>
           <input className="pn-input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Top-up for next package" /></div>
         <button className="pn-btn" disabled={!amount} style={{ opacity: amount ? 1 : 0.5 }}
-          onClick={() => { if (amount) onSave({ id: uid(), patientId: patient.id, amount: Number(amount), date, note }); }}>
-          + Add payment
-        </button>
+          onClick={() => { if (amount) onSave({ id: uid(), patientId: patient.id, amount: Number(amount), date, note }); }}>+ Add payment</button>
       </div>
     </div>
   );
@@ -370,70 +418,74 @@ function ExtendPackageModal({ patient, onClose, onSave }) {
   );
 }
 
-function LogVisitTab({ patients, onSave, onAddPatient }) {
-  const [patientId, setPatientId] = useState(""), [status, setStatus] = useState("Completed");
-  const [date, setDate] = useState(todayStr()), [arrival, setArrival] = useState("");
-  const [observations, setObservations] = useState(""), [treatment, setTreatment] = useState("");
-  const [exercises, setExercises] = useState("");
-  const [nextVisit, setNextVisit] = useState(""), [reason, setReason] = useState("");
-  const [showAdd, setShowAdd] = useState(false);
+function VisitFormModal({ patients, initial, lockedPatientId, onClose, onSave, title }) {
+  const [patientId, setPatientId] = useState(initial?.patientId || lockedPatientId || "");
+  const [date, setDate] = useState(initial?.date || todayStr());
+  const [arrival, setArrival] = useState(initial?.arrival || nowHHMM());
+  const [completion, setCompletion] = useState(initial?.completion || "");
+  const [observations, setObservations] = useState(initial?.observations || "");
+  const [treatment, setTreatment] = useState(initial?.treatment || "");
+  const duration = calcDurationMin(arrival, completion);
+  const canSave = patientId && date && arrival;
 
-  const selectedPatient = patients.find((p) => p.id === patientId);
-  const isFixed = selectedPatient && selectedPatient.treatmentPlan === "Fixed";
-  const nextVisitOptions = isFixed
-    ? ["Continuing as planned", "Wants to stop early", "Extending beyond package"]
-    : ["Yes", "No", "Not sure"];
-
-  const reset = () => { setStatus("Completed"); setArrival(""); setObservations(""); setTreatment(""); setExercises(""); setNextVisit(""); setReason(""); setDate(todayStr()); };
-  const canSave = patientId && (status !== "Completed" || arrival);
   const handleSave = () => {
-    onSave({ id: uid(), patientId, date, status,
-      arrival: status === "Completed" ? arrival : "",
-      observations: status === "Completed" ? observations : "",
-      treatment: status === "Completed" ? treatment : "",
-      exercises: status === "Completed" ? exercises : "",
-      nextVisit: status === "Completed" ? nextVisit : "",
-      reason: status !== "Completed" ? reason : "",
-      loggedAt: new Date().toISOString() });
-    reset();
+    if (!canSave) return;
+    onSave({
+      id: initial?.id || uid(), patientId, date, arrival, completion,
+      duration: duration !== null ? duration : "",
+      observations, treatment, loggedAt: initial?.loggedAt || new Date().toISOString(),
+    });
   };
 
+  return (
+    <div className="pn-modal-overlay" onClick={onClose}>
+      <div className="pn-modal" onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <h3 className="pn-serif" style={{ margin: 0, fontSize: 19 }}>{title}</h3>
+          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 20 }}>✕</button>
+        </div>
+        {!lockedPatientId && (
+          <div className="pn-field"><label className="pn-label">Patient</label>
+            <select className="pn-select" value={patientId} onChange={(e) => setPatientId(e.target.value)}>
+              <option value="">Select patient...</option>
+              {patients.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select></div>
+        )}
+        <div className="pn-field"><label className="pn-label">Date</label>
+          <input type="date" className="pn-input" value={date} onChange={(e) => setDate(e.target.value)} /></div>
+        <div className="pn-field"><label className="pn-label">Arrival time</label><TimePicker12 value={arrival} onChange={setArrival} /></div>
+        <div className="pn-field"><label className="pn-label">Completion time</label><TimePicker12 value={completion} onChange={setCompletion} /></div>
+        {duration !== null && <div style={{ fontSize: 13, color: FOREST, fontWeight: 600, marginBottom: 14 }}>Session length: {fmtDuration(duration)}</div>}
+        <div className="pn-field"><label className="pn-label">Observations</label>
+          <textarea className="pn-textarea" value={observations} onChange={(e) => setObservations(e.target.value)} placeholder="Condition today, progress noticed, treatment given, home-care advised, anything else..." /></div>
+        <div className="pn-field"><label className="pn-label">Treatment given</label>
+          <textarea className="pn-textarea" value={treatment} onChange={(e) => setTreatment(e.target.value)} placeholder="Exercises, manual therapy, etc." /></div>
+        <button className="pn-btn" style={{ opacity: canSave ? 1 : 0.5 }} disabled={!canSave} onClick={handleSave}>✓ {initial ? "Save changes" : "Save visit"}</button>
+      </div>
+    </div>
+  );
+}
+
+function LogVisitTab({ patients, onSave, onAddPatient }) {
+  const [patientId, setPatientId] = useState("");
+  const [showForm, setShowForm] = useState(false);
+  const [showAdd, setShowAdd] = useState(false);
   return (
     <div>
       <div className="pn-card">
         <label className="pn-label">Patient</label>
         {patients.length === 0 ? <div style={{ fontSize: 13.5, color: MUTED, marginBottom: 10 }}>No patients yet — add one to get started.</div> :
-          <select className="pn-select" value={patientId} onChange={(e) => { setPatientId(e.target.value); setNextVisit(""); }}>
+          <select className="pn-select" value={patientId} onChange={(e) => setPatientId(e.target.value)}>
             <option value="">Select patient...</option>
             {patients.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>}
         <button className="pn-btn pn-btn-outline" style={{ marginTop: 10 }} onClick={() => setShowAdd(true)}>+ Add new patient</button>
       </div>
-      <div className="pn-card">
-        <div className="pn-field"><label className="pn-label">Date</label>
-          <input type="date" className="pn-input" value={date} onChange={(e) => setDate(e.target.value)} /></div>
-        <div className="pn-field"><label className="pn-label">Visit status</label>
-          <div className="pn-chip-row">{["Completed", "Cancelled", "Rescheduled"].map((s) =>
-            <div key={s} className={`pn-chip ${status === s ? "selected" : ""}`} onClick={() => setStatus(s)}>{s}</div>)}</div></div>
-        {status === "Completed" ? (<>
-          <div className="pn-field"><label className="pn-label">Arrival time</label>
-            <input type="time" className="pn-input" value={arrival} onChange={(e) => setArrival(e.target.value)} /></div>
-          <div className="pn-field"><label className="pn-label">Observations</label>
-            <textarea className="pn-textarea" value={observations} onChange={(e) => setObservations(e.target.value)} placeholder="Condition today, progress noticed..." /></div>
-          <div className="pn-field"><label className="pn-label">Treatment given</label>
-            <textarea className="pn-textarea" value={treatment} onChange={(e) => setTreatment(e.target.value)} placeholder="Exercises, manual therapy, etc." /></div>
-          <div className="pn-field"><label className="pn-label">Exercises / home-care given</label>
-            <textarea className="pn-textarea" value={exercises} onChange={(e) => setExercises(e.target.value)} placeholder="What to practice at home before next visit" /></div>
-          <div className="pn-field"><label className="pn-label">{isFixed ? "Package status" : "Next visit needed?"}</label>
-            <div className="pn-chip-row">{nextVisitOptions.map((s) =>
-              <div key={s} className={`pn-chip ${nextVisit === s ? "selected" : ""}`} onClick={() => setNextVisit(s)}>{s}</div>)}</div></div>
-        </>) : (
-          <div className="pn-field"><label className="pn-label">Reason</label>
-            <textarea className="pn-textarea" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Why was it cancelled / rescheduled?" /></div>
-        )}
-        <button className="pn-btn" style={{ opacity: canSave ? 1 : 0.5, marginTop: 6 }} disabled={!canSave} onClick={handleSave}>✓ Save visit</button>
-      </div>
-      {showAdd && <AddPatientModal onClose={() => setShowAdd(false)} onSave={(p) => { onAddPatient(p); setPatientId(p.id); setShowAdd(false); }} />}
+      <button className="pn-btn" disabled={!patientId} style={{ opacity: patientId ? 1 : 0.5 }} onClick={() => setShowForm(true)}>📋 Log this visit</button>
+
+      {showForm && <VisitFormModal patients={patients} lockedPatientId={patientId} title="Log visit" onClose={() => setShowForm(false)}
+        onSave={(v) => { onSave(v); setShowForm(false); }} />}
+      {showAdd && <PatientFormModal title="New patient" onClose={() => setShowAdd(false)} onSave={(p) => { onAddPatient(p); setPatientId(p.id); setShowAdd(false); }} />}
     </div>
   );
 }
@@ -463,34 +515,39 @@ function PatientsTab({ patients, visits, payments, onAddPatient, onSelect }) {
             </div>
           );
         })}
-      {showAdd && <AddPatientModal onClose={() => setShowAdd(false)} onSave={(p) => { onAddPatient(p); setShowAdd(false); }} />}
+      {showAdd && <PatientFormModal title="New patient" onClose={() => setShowAdd(false)} onSave={(p) => { onAddPatient(p); setShowAdd(false); }} />}
     </div>
   );
 }
 
-function PatientDetail({ patient, visits, payments, onBack, onAddPayment, onExtendPackage }) {
+function PatientDetail({ patient, visits, payments, onBack, onAddPayment, onExtendPackage, onEditPatient, onEditVisit }) {
   const pv = visits.filter((v) => v.patientId === patient.id).sort((a,b) => b.date.localeCompare(a.date));
   const patientPayments = payments.filter((p) => p.patientId === patient.id).sort((a,b) => b.date.localeCompare(a.date));
   const [showPayment, setShowPayment] = useState(false);
   const [showExtend, setShowExtend] = useState(false);
+  const [showEditPatient, setShowEditPatient] = useState(false);
+  const [editingVisit, setEditingVisit] = useState(null);
   const balance = computeBalance(patient, visits, payments);
   const remaining = sessionsRemaining(patient, visits);
   const completed = completedCount(patient.id, visits);
   const totalPaid = (Number(patient.advance) || 0) + patientPayments.reduce((s,p) => s + (Number(p.amount)||0), 0);
 
   const exportPatient = () => downloadCSV(`${patient.name.replace(/\s+/g,"_")}_records.csv`, pv.map((v) => ({
-    Date: fmtDate(v.date), Status: v.status, Arrival: v.arrival, Observations: v.observations,
-    Treatment: v.treatment, Exercises: v.exercises, "Next Visit": v.nextVisit, Reason: v.reason })));
+    Date: fmtDate(v.date), Arrival: fmtTime12(v.arrival), Completion: fmtTime12(v.completion), Duration: fmtDuration(v.duration),
+    Observations: v.observations, Treatment: v.treatment })));
 
   return (
     <div>
       <button onClick={onBack} style={{ background: "none", border: "none", color: "#1B3B2F", fontWeight: 600, marginBottom: 12, padding: 0 }}>‹ All patients</button>
       <div className="pn-card">
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
-          <div className="pn-avatar" style={{ width: 50, height: 50, fontSize: 18 }}>{patient.name.charAt(0).toUpperCase()}</div>
-          <div><div className="pn-serif" style={{ fontSize: 18, fontWeight: 700 }}>{patient.name}</div>
-            <div style={{ fontSize: 12.5, color: MUTED }}>{[patient.age && `${patient.age} yrs`, patient.gender].filter(Boolean).join(" · ")}</div>
-            <div style={{ fontSize: 12.5, color: MUTED }}>{patient.condition}</div></div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
+            <div className="pn-avatar" style={{ width: 50, height: 50, fontSize: 18 }}>{patient.name.charAt(0).toUpperCase()}</div>
+            <div><div className="pn-serif" style={{ fontSize: 18, fontWeight: 700 }}>{patient.name}</div>
+              <div style={{ fontSize: 12.5, color: MUTED }}>{[patient.age && `${patient.age} yrs`, patient.gender].filter(Boolean).join(" · ")}</div>
+              <div style={{ fontSize: 12.5, color: MUTED }}>{patient.condition}</div></div>
+          </div>
+          <button className="pn-btn pn-btn-outline pn-btn-sm" onClick={() => setShowEditPatient(true)}>Edit</button>
         </div>
         {patient.phone && <div style={{ fontSize: 13.5, marginBottom: 4 }}>📞 {patient.phone}</div>}
         {patient.occupation && <div style={{ fontSize: 13.5, marginBottom: 4 }}>💼 {patient.occupation}</div>}
@@ -513,13 +570,9 @@ function PatientDetail({ patient, visits, payments, onBack, onAddPayment, onExte
               {remaining !== null && remaining <= 0 && <span style={{ color: "#A1442E", fontWeight: 600 }}>Finished</span>}
             </div>
             <div className="pn-progress-bar"><div className="pn-progress-fill" style={{ width: `${Math.min(100, (completed / (Number(patient.packageSessions)||1)) * 100)}%` }}></div></div>
-            {remaining !== null && remaining <= 2 && (
-              <button className="pn-btn pn-btn-outline pn-btn-sm" style={{ marginTop: 10 }} onClick={() => setShowExtend(true)}>Extend package</button>
-            )}
+            {remaining !== null && remaining <= 2 && <button className="pn-btn pn-btn-outline pn-btn-sm" style={{ marginTop: 10 }} onClick={() => setShowExtend(true)}>Extend package</button>}
           </div>
-        ) : (
-          <div style={{ fontSize: 13.5, marginBottom: 12 }}>{completed} sessions so far (open-ended)</div>
-        )}
+        ) : <div style={{ fontSize: 13.5, marginBottom: 12 }}>{completed} sessions so far (open-ended)</div>}
         <div style={{ fontSize: 13.5, color: MUTED }}>Fee per session: {patient.fee ? fmtMoney(patient.fee) : "—"}</div>
         <div style={{ fontSize: 13.5, color: MUTED }}>Total paid: {fmtMoney(totalPaid)}</div>
         <div style={{ fontSize: 15, fontWeight: 700, marginTop: 6, color: balance < 0 ? "#A1442E" : FOREST }}>
@@ -536,26 +589,25 @@ function PatientDetail({ patient, visits, payments, onBack, onAddPayment, onExte
 
       <button className="pn-btn pn-btn-outline" style={{ marginBottom: 14 }} onClick={exportPatient}>⬇ Export {patient.name}'s records (CSV)</button>
       <div className="pn-card">
-        <div className="pn-label" style={{ marginBottom: 10 }}>Visit history ({pv.length})</div>
+        <div className="pn-label" style={{ marginBottom: 10 }}>Visit history ({pv.length}) — tap to edit</div>
         {pv.length === 0 ? <div style={{ fontSize: 13.5, color: MUTED }}>No visits logged yet.</div> :
           pv.map((v) => (
-            <div key={v.id} className="pn-visit-item">
+            <div key={v.id} className="pn-visit-item" onClick={() => setEditingVisit(v)}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
                 <span style={{ fontWeight: 600, fontSize: 14 }}>{fmtDate(v.date)}</span>
-                <span className={`pn-badge ${v.status === "Completed" ? "pn-badge-done" : v.status === "Cancelled" ? "pn-badge-cancel" : "pn-badge-resched"}`}>{v.status}</span>
+                {v.duration !== "" && <span style={{ fontSize: 12, color: MUTED }}>{fmtDuration(v.duration)}</span>}
               </div>
-              {v.status === "Completed" ? (<>
-                {v.arrival && <div style={{ fontSize: 13, color: MUTED }}>Arrived {v.arrival}</div>}
-                {v.observations && <div style={{ fontSize: 13.5, marginTop: 4 }}>{v.observations}</div>}
-                {v.treatment && <div style={{ fontSize: 13, color: MUTED, marginTop: 2 }}>Treatment: {v.treatment}</div>}
-                {v.exercises && <div style={{ fontSize: 13, color: MUTED, marginTop: 2 }}>Home-care: {v.exercises}</div>}
-                {v.nextVisit && <div style={{ fontSize: 12, color: MUTED, marginTop: 4 }}>Status: {v.nextVisit}</div>}
-              </>) : (v.reason && <div style={{ fontSize: 13.5, marginTop: 4 }}>{v.reason}</div>)}
+              <div style={{ fontSize: 13, color: MUTED }}>{fmtTime12(v.arrival)}{v.completion ? ` – ${fmtTime12(v.completion)}` : ""}</div>
+              {v.observations && <div style={{ fontSize: 13.5, marginTop: 4 }}>{v.observations}</div>}
+              {v.treatment && <div style={{ fontSize: 13, color: MUTED, marginTop: 2 }}>Treatment: {v.treatment}</div>}
             </div>
           ))}
       </div>
+
       {showPayment && <AddPaymentModal patient={patient} onClose={() => setShowPayment(false)} onSave={(pay) => { onAddPayment(pay); setShowPayment(false); }} />}
       {showExtend && <ExtendPackageModal patient={patient} onClose={() => setShowExtend(false)} onSave={(newTotal) => { onExtendPackage(patient.id, newTotal); setShowExtend(false); }} />}
+      {showEditPatient && <PatientFormModal title="Edit patient" initial={patient} onClose={() => setShowEditPatient(false)} onSave={(p) => { onEditPatient(p); setShowEditPatient(false); }} />}
+      {editingVisit && <VisitFormModal patients={[]} initial={editingVisit} lockedPatientId={editingVisit.patientId} title="Edit visit" onClose={() => setEditingVisit(null)} onSave={(v) => { onEditVisit(v); setEditingVisit(null); }} />}
     </div>
   );
 }
@@ -564,9 +616,9 @@ function HistoryTab({ patients, visits }) {
   const [filter, setFilter] = useState("");
   const patientName = (id) => patients.find((p) => p.id === id)?.name || "Unknown";
   const filtered = (filter ? visits.filter((v) => v.patientId === filter) : visits).slice().sort((a,b) => b.date.localeCompare(a.date));
-  const exportAll = () => downloadCSV("all_visits_log.csv", visits.slice().sort((a,b) => b.date.localeCompare(a.date)).map((v) => ({
-    Date: fmtDate(v.date), Patient: patientName(v.patientId), Status: v.status, Arrival: v.arrival,
-    Observations: v.observations, Treatment: v.treatment, Exercises: v.exercises, "Next Visit": v.nextVisit, Reason: v.reason })));
+  const exportAll = () => downloadCSV("all_visits_log.csv", filtered.map((v) => ({
+    Date: fmtDate(v.date), Patient: patientName(v.patientId), Arrival: fmtTime12(v.arrival), Completion: fmtTime12(v.completion),
+    Duration: fmtDuration(v.duration), Observations: v.observations, Treatment: v.treatment })));
   return (
     <div>
       <div className="pn-card">
@@ -582,9 +634,9 @@ function HistoryTab({ patients, visits }) {
           <div key={v.id} className="pn-visit-item">
             <div style={{ display: "flex", justifyContent: "space-between" }}>
               <span style={{ fontWeight: 600, fontSize: 14 }}>{patientName(v.patientId)}</span>
-              <span className={`pn-badge ${v.status === "Completed" ? "pn-badge-done" : v.status === "Cancelled" ? "pn-badge-cancel" : "pn-badge-resched"}`}>{v.status}</span>
+              <span style={{ fontSize: 12, color: MUTED }}>{fmtDuration(v.duration)}</span>
             </div>
-            <div style={{ fontSize: 12.5, color: MUTED, marginTop: 2 }}>{fmtDate(v.date)}{v.arrival ? ` · ${v.arrival}` : ""}</div>
+            <div style={{ fontSize: 12.5, color: MUTED, marginTop: 2 }}>{fmtDate(v.date)} · {fmtTime12(v.arrival)}{v.completion ? ` – ${fmtTime12(v.completion)}` : ""}</div>
             {v.observations && <div style={{ fontSize: 13, marginTop: 4 }}>{v.observations}</div>}
           </div>
         ))}</div>}
@@ -595,99 +647,51 @@ function HistoryTab({ patients, visits }) {
 function DashboardTab({ patients, visits, payments, sheetsUrl, sheetsSecret }) {
   const { monday, sunday } = getWeekRange(new Date());
   const [bookings, setBookings] = useState([]);
+  useEffect(() => { (async () => { const raw = await fetchFromSheet(sheetsUrl, sheetsSecret, "bookings"); if (raw) setBookings(raw); })(); }, [sheetsUrl, sheetsSecret]);
 
-  useEffect(() => {
-    (async () => {
-      const raw = await fetchFromSheet(sheetsUrl, sheetsSecret, "bookings");
-      if (raw) setBookings(raw);
-    })();
-  }, [sheetsUrl, sheetsSecret]);
-
-  const inWeek = (dstr) => {
-    if (!dstr) return false;
-    const d = new Date(normalizeDate(dstr) + "T00:00:00");
-    return d >= monday && d <= sunday;
-  };
-
+  const inWeek = (dstr) => { if (!dstr) return false; const d = new Date(normalizeDate(dstr) + "T00:00:00"); return d >= monday && d <= sunday; };
   const weekVisits = visits.filter((v) => inWeek(v.date));
-  const completed = weekVisits.filter((v) => v.status === "Completed");
-  const cancelled = weekVisits.filter((v) => v.status === "Cancelled").length;
-  const rescheduled = weekVisits.filter((v) => v.status === "Rescheduled").length;
-
-  const byPatient = {};
-  completed.forEach((v) => { byPatient[v.patientId] = (byPatient[v.patientId] || 0) + 1; });
   const patientName = (id) => patients.find((p) => p.id === id)?.name || "Unknown";
-
-  const revenue = completed.reduce((sum, v) => {
-    const p = patients.find((pp) => pp.id === v.patientId);
-    return sum + (p ? Number(p.fee) || 0 : 0);
-  }, 0);
-
-  const lowPackage = patients.filter((p) => {
-    const r = sessionsRemaining(p, visits);
-    return r !== null && r <= 2;
-  });
+  const byPatient = {};
+  weekVisits.forEach((v) => { byPatient[v.patientId] = (byPatient[v.patientId] || 0) + 1; });
+  const revenue = weekVisits.reduce((sum, v) => { const p = patients.find((pp) => pp.id === v.patientId); return sum + (p ? Number(p.fee) || 0 : 0); }, 0);
+  const lowPackage = patients.filter((p) => { const r = sessionsRemaining(p, visits); return r !== null && r <= 2; });
   const duePatients = patients.filter((p) => computeBalance(p, visits, payments) < 0);
-
   const today = new Date(); today.setHours(0,0,0,0);
-  const upcomingBookings = bookings.filter((b) => {
-    const d = new Date(normalizeDate(b["Slot Date"]) + "T00:00:00");
-    return d >= today && d <= sunday;
-  }).sort((a,b) => String(a["Slot Date"]).localeCompare(String(b["Slot Date"])));
+  const upcomingBookings = bookings.filter((b) => { const d = new Date(normalizeDate(b["Slot Date"]) + "T00:00:00"); return d >= today && d <= sunday; })
+    .sort((a,b) => String(a["Slot Date"]).localeCompare(String(b["Slot Date"])));
 
   return (
     <div>
       <div className="pn-card">
         <div className="pn-serif" style={{ fontSize: 17, fontWeight: 700, marginBottom: 4 }}>This week</div>
         <div style={{ fontSize: 12.5, color: MUTED, marginBottom: 12 }}>{fmtDate(monday.toISOString().slice(0,10))} – {fmtDate(sunday.toISOString().slice(0,10))}</div>
-        <div className="pn-stat-row" style={{ marginBottom: 10 }}>
-          <div className="pn-stat"><div className="pn-stat-num">{completed.length}</div><div className="pn-stat-label">Completed</div></div>
-          <div className="pn-stat"><div className="pn-stat-num">{cancelled}</div><div className="pn-stat-label">Cancelled</div></div>
-          <div className="pn-stat"><div className="pn-stat-num">{rescheduled}</div><div className="pn-stat-label">Rescheduled</div></div>
-        </div>
         <div className="pn-stat-row">
+          <div className="pn-stat"><div className="pn-stat-num">{weekVisits.length}</div><div className="pn-stat-label">Sessions</div></div>
           <div className="pn-stat"><div className="pn-stat-num">{fmtMoney(revenue)}</div><div className="pn-stat-label">Collected</div></div>
           <div className="pn-stat"><div className="pn-stat-num">{Object.keys(byPatient).length}</div><div className="pn-stat-label">Patients seen</div></div>
         </div>
       </div>
-
       {Object.keys(byPatient).length > 0 && (
-        <div className="pn-card">
-          <div className="pn-label" style={{ marginBottom: 8 }}>Sessions by patient</div>
+        <div className="pn-card"><div className="pn-label" style={{ marginBottom: 8 }}>Sessions by patient</div>
           {Object.entries(byPatient).map(([id, count]) => (
             <div key={id} style={{ display: "flex", justifyContent: "space-between", fontSize: 13.5, padding: "4px 0" }}>
-              <span>{patientName(id)}</span><span style={{ color: MUTED }}>{count} session{count !== 1 ? "s" : ""}</span>
-            </div>
-          ))}
-        </div>
+              <span>{patientName(id)}</span><span style={{ color: MUTED }}>{count} session{count !== 1 ? "s" : ""}</span></div>
+          ))}</div>
       )}
-
       {lowPackage.length > 0 && (
-        <div className="pn-card">
-          <div className="pn-label" style={{ marginBottom: 8 }}>Packages running low</div>
-          {lowPackage.map((p) => {
-            const r = sessionsRemaining(p, visits);
-            return <div key={p.id} style={{ fontSize: 13.5, padding: "4px 0" }}>{p.name} — {r <= 0 ? "finished" : `${r} session${r !== 1 ? "s" : ""} left`}</div>;
-          })}
-        </div>
+        <div className="pn-card"><div className="pn-label" style={{ marginBottom: 8 }}>Packages running low</div>
+          {lowPackage.map((p) => { const r = sessionsRemaining(p, visits);
+            return <div key={p.id} style={{ fontSize: 13.5, padding: "4px 0" }}>{p.name} — {r <= 0 ? "finished" : `${r} session${r !== 1 ? "s" : ""} left`}</div>; })}</div>
       )}
-
       {duePatients.length > 0 && (
-        <div className="pn-card">
-          <div className="pn-label" style={{ marginBottom: 8 }}>Payment follow-ups</div>
-          {duePatients.map((p) => {
-            const bal = computeBalance(p, visits, payments);
-            return <div key={p.id} style={{ fontSize: 13.5, padding: "4px 0", color: "#A1442E" }}>{p.name} — due {fmtMoney(-bal)}</div>;
-          })}
-        </div>
+        <div className="pn-card"><div className="pn-label" style={{ marginBottom: 8 }}>Payment follow-ups</div>
+          {duePatients.map((p) => { const bal = computeBalance(p, visits, payments);
+            return <div key={p.id} style={{ fontSize: 13.5, padding: "4px 0", color: "#A1442E" }}>{p.name} — due {fmtMoney(-bal)}</div>; })}</div>
       )}
-
-      <div className="pn-card">
-        <div className="pn-label" style={{ marginBottom: 8 }}>Upcoming bookings this week</div>
+      <div className="pn-card"><div className="pn-label" style={{ marginBottom: 8 }}>Upcoming bookings this week</div>
         {upcomingBookings.length === 0 ? <div style={{ fontSize: 13.5, color: MUTED }}>None found, or Sync not connected.</div> :
-          upcomingBookings.map((b, i) => (
-            <div key={i} style={{ fontSize: 13.5, padding: "4px 0" }}>{fmtDate(b["Slot Date"])} {b["Slot Time"]} — {b["Patient / Guest"]}</div>
-          ))}
+          upcomingBookings.map((b, i) => <div key={i} style={{ fontSize: 13.5, padding: "4px 0" }}>{fmtDate(b["Slot Date"])} {b["Slot Time"]} — {b["Patient / Guest"]}</div>)}
       </div>
     </div>
   );
@@ -698,15 +702,14 @@ function SyncTab({ sheetsUrl, sheetsSecret, onSave }) {
   return (
     <div className="pn-card">
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-        <span className="pn-serif" style={{ fontSize: 17, fontWeight: 700 }}>🔄 Google Sheets sync</span>
-      </div>
-      <div style={{ fontSize: 13, color: MUTED, marginBottom: 12 }}>Paste the Web App URL and your secret password from your Apps Script deployment. Both are saved only on this device — never in the app's code.</div>
+        <span className="pn-serif" style={{ fontSize: 17, fontWeight: 700 }}>🔄 Google Sheets sync</span></div>
+      <div style={{ fontSize: 13, color: MUTED, marginBottom: 12 }}>Paste the Web App URL and your secret password. Both are saved only on this device — never in the app's code.</div>
       <label className="pn-label">Web App URL</label>
       <input className="pn-input" value={url} onChange={(e) => { setUrl(e.target.value); setSaved(false); }} placeholder="https://script.google.com/macros/s/..." />
       <label className="pn-label" style={{ marginTop: 12 }}>Secret password</label>
-      <input className="pn-input" type="password" value={secret} onChange={(e) => { setSecret(e.target.value); setSaved(false); }} placeholder="Same word as CONFIG.SECRET in your script" />
+      <PasswordField value={secret} onChange={(e) => { setSecret(e.target.value); setSaved(false); }} placeholder="Same word as CONFIG.SECRET" />
       <button className="pn-btn" style={{ marginTop: 12 }} onClick={() => { onSave(url, secret); setSaved(true); }}>✓ Save</button>
-      {saved && <div style={{ fontSize: 12.5, color: "#1B3B2F", marginTop: 8, textAlign: "center" }}>Saved. New entries will sync from now on.</div>}
+      {saved && <div style={{ fontSize: 12.5, color: FOREST, marginTop: 8, textAlign: "center" }}>Saved. New entries will sync from now on.</div>}
     </div>
   );
 }
@@ -722,6 +725,7 @@ function App() {
   const [sheetsSecret, setSheetsSecret] = useState(() => loadKey("sheetsSecret", ""));
   const [refreshing, setRefreshing] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [unlocked, setUnlocked] = useState(() => { const s = loadKey("sheetsSecret", ""); return !s || loadKey("unlocked", false); });
 
   const refreshFromSheet = async (url, secret) => {
     if (!url || !secret) return;
@@ -734,8 +738,7 @@ function App() {
     }
     setRefreshing(false);
   };
-
-  useEffect(() => { if (sheetsUrl && sheetsSecret) refreshFromSheet(sheetsUrl, sheetsSecret); }, []);
+  useEffect(() => { if (sheetsUrl && sheetsSecret && unlocked) refreshFromSheet(sheetsUrl, sheetsSecret); }, [unlocked]);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 2200); };
   const saveSheetsConfig = (url, secret) => {
@@ -744,15 +747,30 @@ function App() {
     if (url && secret) refreshFromSheet(url, secret);
   };
   const addPatient = async (p) => {
-    const localP = { ...p }; delete localP.idCardBase64; delete localP.idCardMime;
+    const localP = { ...p }; delete localP.idCardBase64; delete localP.idCardMime; delete localP.existingIdCardUrl;
     const next = [...patients, localP]; setPatients(next); saveKey("patients", next);
     await syncToSheets(sheetsUrl, sheetsSecret, "patient", p); showToast("Patient added");
+    if (sheetsUrl && sheetsSecret) setTimeout(() => refreshFromSheet(sheetsUrl, sheetsSecret), 1500);
+  };
+  const editPatient = async (p) => {
+    const localP = { ...p }; delete localP.idCardBase64; delete localP.idCardMime; delete localP.existingIdCardUrl;
+    if (!localP.idCardUrl) localP.idCardUrl = p.existingIdCardUrl || "";
+    const next = patients.map((x) => x.id === p.id ? localP : x);
+    setPatients(next); saveKey("patients", next);
+    await syncToSheets(sheetsUrl, sheetsSecret, "editPatient", p); showToast("Patient updated");
     if (sheetsUrl && sheetsSecret) setTimeout(() => refreshFromSheet(sheetsUrl, sheetsSecret), 1500);
   };
   const addVisit = async (v) => {
     const next = [...visits, v]; setVisits(next); saveKey("visits", next);
     const patientName = patients.find((p) => p.id === v.patientId)?.name || "Unknown";
     await syncToSheets(sheetsUrl, sheetsSecret, "visit", { ...v, patientName }); showToast("Visit saved");
+    if (sheetsUrl && sheetsSecret) setTimeout(() => refreshFromSheet(sheetsUrl, sheetsSecret), 1200);
+  };
+  const editVisit = async (v) => {
+    const next = visits.map((x) => x.id === v.id ? v : x);
+    setVisits(next); saveKey("visits", next);
+    const patientName = patients.find((p) => p.id === v.patientId)?.name || "Unknown";
+    await syncToSheets(sheetsUrl, sheetsSecret, "editVisit", { ...v, patientName }); showToast("Visit updated");
     if (sheetsUrl && sheetsSecret) setTimeout(() => refreshFromSheet(sheetsUrl, sheetsSecret), 1200);
   };
   const addPayment = async (pay) => {
@@ -768,8 +786,9 @@ function App() {
     showToast("Package updated");
   };
 
-  const patientObj = selectedPatient ? patients.find((p) => p.id === selectedPatient) : null;
+  if (!unlocked) return <LockScreen correctSecret={sheetsSecret} onUnlock={() => { saveKey("unlocked", true); setUnlocked(true); }} />;
 
+  const patientObj = selectedPatient ? patients.find((p) => p.id === selectedPatient) : null;
   const lowPackageCount = patients.filter((p) => { const r = sessionsRemaining(p, visits); return r !== null && r <= 2; }).length;
   const dueCount = patients.filter((p) => computeBalance(p, visits, payments) < 0).length;
   const alertCount = lowPackageCount + dueCount;
@@ -777,8 +796,11 @@ function App() {
   return (
     <div className="pn-root">
       <div className="pn-header">
-        <div className="pn-header-top"><span style={{fontSize:20}}>🍃</span><span className="pn-header-title pn-serif">Physio Nest</span></div>
-        <div className="pn-header-sub">PATIENT VISIT TRACKER{refreshing ? " · SYNCING…" : ""}</div>
+        <div>
+          <div className="pn-header-top"><span style={{fontSize:20}}>🍃</span><span className="pn-header-title pn-serif">Physio Nest</span></div>
+          <div className="pn-header-sub">PATIENT VISIT TRACKER{refreshing ? " · SYNCING…" : ""}</div>
+        </div>
+        {sheetsSecret && <button className="pn-lock-btn" onClick={() => { saveKey("unlocked", false); setUnlocked(false); }}>🔒</button>}
       </div>
       {alertCount > 0 && !bannerDismissed && (
         <div className="pn-banner" onClick={() => { setTab("dashboard"); setBannerDismissed(true); }}>
@@ -789,7 +811,7 @@ function App() {
       <div className="pn-content">
         {tab === "log" && <LogVisitTab patients={patients} onSave={addVisit} onAddPatient={addPatient} />}
         {tab === "patients" && !patientObj && <PatientsTab patients={patients} visits={visits} payments={payments} onAddPatient={addPatient} onSelect={setSelectedPatient} />}
-        {tab === "patients" && patientObj && <PatientDetail patient={patientObj} visits={visits} payments={payments} onBack={() => setSelectedPatient(null)} onAddPayment={addPayment} onExtendPackage={extendPackage} />}
+        {tab === "patients" && patientObj && <PatientDetail patient={patientObj} visits={visits} payments={payments} onBack={() => setSelectedPatient(null)} onAddPayment={addPayment} onExtendPackage={extendPackage} onEditPatient={editPatient} onEditVisit={editVisit} />}
         {tab === "history" && <HistoryTab patients={patients} visits={visits} />}
         {tab === "dashboard" && <DashboardTab patients={patients} visits={visits} payments={payments} sheetsUrl={sheetsUrl} sheetsSecret={sheetsSecret} />}
         {tab === "sync" && <SyncTab sheetsUrl={sheetsUrl} sheetsSecret={sheetsSecret} onSave={saveSheetsConfig} />}
@@ -805,7 +827,6 @@ function App() {
     </div>
   );
 }
-
 ReactDOM.createRoot(document.getElementById("root")).render(<App />);
 </script>
 </body>
