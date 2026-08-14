@@ -10,15 +10,9 @@
   "theme_color": "#1B3B2F",
   "icons": [
     {
-      "src": "data:image/svg+xml,&lt;svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'&gt;&lt;rect width='100' height='100' rx='20' fill='%231B3B2F'/&gt;&lt;text x='50' y='65' font-size='55' text-anchor='middle' fill='%23C29B4F'&gt;🍃&lt;/text&gt;&lt;/svg&gt;",
-      "isSquare": false,
-      "isPng": false,
-      "isWebp": false,
-      "isJpg": false,
-      "width": 0,
-      "is512x512": false,
-      "is256x256": false,
-      "is192x192": false
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
     }
   ],
   "lang": "en"
