@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
- <link rel="manifest" href="manifest.json" />
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Physio Nest</title>
@@ -10,6 +9,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-title" content="Physio Nest" />
 <meta name="theme-color" content="#1B3B2F" />
+<link rel="manifest" href="manifest.json" />
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%231B3B2F'/%3E%3Ctext x='50' y='65' font-size='55' text-anchor='middle' fill='%23C29B4F'%3E%F0%9F%8D%83%3C/text%3E%3C/svg%3E" />
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%231B3B2F'/%3E%3Ctext x='50' y='65' font-size='55' text-anchor='middle' fill='%23C29B4F'%3E%F0%9F%8D%83%3C/text%3E%3C/svg%3E" />
 <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
@@ -726,7 +726,7 @@ function App() {
   const [sheetsSecret, setSheetsSecret] = useState(() => loadKey("sheetsSecret", ""));
   const [refreshing, setRefreshing] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
-  const [unlocked, setUnlocked] = useState(() => { const s = loadKey("sheetsSecret", ""); return !s || loadKey("unlocked", false); });
+  const [unlocked, setUnlocked] = useState(() => { const s = loadKey("sheetsSecret", ""); return !s; });
 
   const refreshFromSheet = async (url, secret) => {
     if (!url || !secret) return;
@@ -787,7 +787,7 @@ function App() {
     showToast("Package updated");
   };
 
-  if (!unlocked) return <LockScreen correctSecret={sheetsSecret} onUnlock={() => { saveKey("unlocked", true); setUnlocked(true); }} />;
+  if (!unlocked) return <LockScreen correctSecret={sheetsSecret} onUnlock={() => setUnlocked(true)} />;
 
   const patientObj = selectedPatient ? patients.find((p) => p.id === selectedPatient) : null;
   const lowPackageCount = patients.filter((p) => { const r = sessionsRemaining(p, visits); return r !== null && r <= 2; }).length;
@@ -801,7 +801,6 @@ function App() {
           <div className="pn-header-top"><span style={{fontSize:20}}>🍃</span><span className="pn-header-title pn-serif">Physio Nest</span></div>
           <div className="pn-header-sub">PATIENT VISIT TRACKER{refreshing ? " · SYNCING…" : ""}</div>
         </div>
-        {sheetsSecret && <button className="pn-lock-btn" onClick={() => { saveKey("unlocked", false); setUnlocked(false); }}>🔒</button>}
       </div>
       {alertCount > 0 && !bannerDismissed && (
         <div className="pn-banner" onClick={() => { setTab("dashboard"); setBannerDismissed(true); }}>
